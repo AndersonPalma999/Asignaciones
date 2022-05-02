@@ -1,0 +1,167 @@
+---
+title: "ParcialEC"
+author: "Anderson Palma"
+date: '2022-05-01'
+output: html_document
+---
+
+
+```{r setup, include=FALSE, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(spatialreg) ## Librería que permite utilizar datos espaciales
+library(spdep)
+library(ape)
+library(sp)
+library(readxl)
+library(psych) 
+library(openxlsx)
+library(ggplot2)
+library(dplyr)
+```
+```{r}
+library(readxl)
+datos_xp <- read_excel("C:/Users/Lenovo/Downloads/XPABLO (2).xlsx")
+```
+
+```{r}
+names(datos_xp)
+```
+```{r}
+df1 <- datos_xp[-c(15,16,17,18,19)]
+names(df1)
+```
+```{r}
+library(stats)
+model_1 <- lm(Ca ~ Fe, data = df1) 
+summary(model_1)
+```
+$$Y_{Ca} = 8.46 + (-0.0012X_{Fe})$$
+```{r}
+library(ggplot2)
+ggplot(df1, aes(y = Ca, x = Fe)) +
+  geom_point()+
+  geom_smooth(method='lm', se = F)
+```
+
+
+```{r}
+
+df_2 <- df |>
+  filter(Ca <= 15)
+df_2
+```
+```{r}
+library(stats)
+model_2 <- lm(Ca ~ Fe, data = df_2) 
+summary(model_2)
+```
+```{r}
+ggplot(df_2, aes(y = Ca, x = Fe)) +
+  geom_point()+
+  geom_smooth(method='lm', se = F)
+```
+
+```{r}
+ggplot(df_2, aes(Long, Lat))+
+  geom_point(size = abs(res_2))
+```
+```{r}
+groups_col <- cut(res_2, breaks = 6)
+ggplot(df_2, aes(Long, Lat, color = groups_col))+
+  geom_point(size = 4)
+```
+```{r}
+matriz_dist <- as.matrix(dist(cbind(x = df_2$Long, y = df_2$Lat)))
+
+dim(matriz_dist) #Indice de Moran 
+```
+```{r}
+m_dist_inv <- 1/matriz_dist
+m_dist_inv[is.infinite(m_dist_inv)] <- 0
+diag(m_dist_inv) <- 0
+m_dist_inv
+```
+```{r}
+Moran.I(res_2, m_dist_inv) 
+```
+```{r}
+model_3 <- lm(Ca ~ Fe + CE, data = df1)
+summary(model_3) #Modelo de regrecion multiple
+```
+$$Y_{Ca} = 6.42 + (-0.001X_{Fe}) + 6.34z$$
+```{r}
+res_3 <- model_3$residuals
+```
+```{r}
+matriz_dist <- as.matrix(dist(cbind(x = df1$Long, y = df1$Lat)))
+
+dim(matriz_dist)
+```
+
+
+```{r}
+m_dist_inv <- 1/matriz_dist
+m_dist_inv[is.infinite(m_dist_inv)] <- 0
+diag(m_dist_inv) <- 0
+m_dist_inv
+```
+
+```{r}
+Moran.I(res_3, m_dist_inv) 
+```
+```{r}
+model_4 <- lm(Ca ~ Fe + Long + Lat + I(Long**2) + I(Lat**2), data = df1) 
+summary(model_4)
+```
+```{r}
+res_4 <- model_4$residuals
+shapiro.test(res_4)
+plot(res_4, pch = 16)
+Moran.I(res_4, m_dist_inv)
+```
+```{r}
+groups_col <- cut(res_4, breaks = 5)
+ggplot(df, aes(Long, Lat, color = groups_col))+
+  geom_point(size = 3)
+```
+```{r}
+model_5 <- lm(Ca ~ Fe + I(Long**2) + I(Lat**2) + I(Fe**2)+ Long + Lat , data = df) #datos georrefenciados
+summary(model_5)
+```
+```{r}
+res_5 <- model_5$residuals
+Moran.I(res_5, m_dist_inv) 
+```
+```{r}
+xy = as.matrix(df[,c(2,3)]) #modelo de regrecion espacial 
+```
+```{r}
+contnb <- dnearneigh(coordinates(xy),0,380000,longlat = F)
+dlist <- nbdists(contnb, xy)
+dlist <- lapply(dlist, function(x) 1/x)            
+Wve <- nb2listw(contnb,glist=dlist,style = "W")       
+```
+```{r}
+model_auto <- spautolm(Ca ~ 1,data = df,listw=Wve)
+summary(model_auto) #modelo de regrecion puro
+```
+
+
+```{r}
+res_6 <- model_auto$fit$residuals
+groups_col <- cut(res_6, breaks = 5)
+ggplot(df1, aes(Long, Lat, color = groups_col))+
+  geom_point(size = 3)
+```
+
+```{r}
+Moran.I(res_6, m_dist_inv)
+```
+
+
+
+
+
+
+
